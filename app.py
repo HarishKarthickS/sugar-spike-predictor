@@ -22,26 +22,6 @@ model = None
 model_loaded = False
 model_error = None
 
-# Function to create a fallback model if loading fails
-def create_fallback_model():
-    """Create a simple fallback model when the pickled model can't be loaded"""
-    app.logger.warning("Creating fallback model since pickled model failed to load")
-    # Create a simple random forest model
-    fallback_model = RandomForestRegressor(n_estimators=50, random_state=42)
-    
-    # Create some synthetic data to fit the model
-    # Features: age, gender(0/1), bmi, etc.
-    np.random.seed(42)
-    X_synthetic = np.random.rand(100, 15)  # 15 features
-    # Target: blood glucose values between 70 and 180
-    y_synthetic = 70 + 110 * np.random.rand(100)
-    
-    # Fit the model
-    fallback_model.fit(X_synthetic, y_synthetic)
-    
-    app.logger.info("Fallback model created successfully")
-    return fallback_model
-
 # Function to safely load model
 def load_model():
     global model, model_loaded, model_error
@@ -63,18 +43,16 @@ def load_model():
                     app.logger.info("Model loaded successfully with pickle from %s", model_path)
                 except Exception as e2:
                     app.logger.error("Failed to load model: %s and %s", str(e1), str(e2))
-                    app.logger.info("Using fallback model instead")
-                    model = create_fallback_model()
-                    model_loaded = True
+                    model_loaded = False
+                    model_error = f"Could not load model: {str(e2)}"
         except Exception as e:
             app.logger.error("Error loading model: %s", str(e))
-            app.logger.info("Using fallback model instead")
-            model = create_fallback_model()
-            model_loaded = True
+            model_loaded = False
+            model_error = f"Error loading model: {str(e)}"
     else:
-        app.logger.warning("Model file %s not found, using fallback model", model_path)
-        model = create_fallback_model()
-        model_loaded = True
+        app.logger.warning("Model file %s not found", model_path)
+        model_loaded = False
+        model_error = f"Model file {model_path} not found"
 
 # Try to load the model
 load_model()
