@@ -1,11 +1,13 @@
-from flask import Flask, render_template, request, jsonify
-import pandas as pd
-import numpy as np
-import joblib
+# pylint: disable=import-error
+from flask import Flask, render_template, request, jsonify  # type: ignore
+import pandas as pd  # type: ignore
+import numpy as np  # type: ignore
+import joblib  # type: ignore
 import datetime
 import os
 import logging
 import pickle
+import traceback
 from pathlib import Path
 
 app = Flask(__name__)
@@ -53,157 +55,33 @@ load_model()
 
 @app.route('/')
 def home():
-    try:
-        return render_template('index.html', model_loaded=model_loaded, model_error=model_error)
-    except Exception as e:
-        # Fallback if template not found
-        html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Glucose Prediction</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-                .container { max-width: 800px; margin: 0 auto; }
-                .error { color: #e74c3c; background: #fadbd8; padding: 10px; border-radius: 5px; }
-                h1 { color: #3498db; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>Glucose Prediction</h1>
-                <p>Welcome to the Glucose Prediction service.</p>
-                
-                <div class="model-status">
-                    <h2>Model Status</h2>
-        """
-        
-        if model_loaded:
-            html += "<p>✅ Model loaded successfully!</p>"
-        else:
-            html += f"<p class='error'>❌ Model loading error: {model_error}</p>"
-            
-        html += """
-                </div>
-                
-                <div class="form-section">
-                    <h2>Input Your Data</h2>
-                    <form action="/predict" method="post">
-                        <h3>Personal Information</h3>
-                        <div>
-                            <label for="age">Age:</label>
-                            <input type="number" id="age" name="age" min="18" max="100" step="1" required>
-                        </div>
-                        <div>
-                            <label for="gender">Gender:</label>
-                            <select id="gender" name="gender" required>
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="bmi">BMI:</label>
-                            <input type="number" id="bmi" name="bmi" min="10" max="50" step="0.1" required>
-                        </div>
-                        <div>
-                            <label for="a1c">A1C (%):</label>
-                            <input type="number" id="a1c" name="a1c" min="4" max="14" step="0.1" required>
-                        </div>
-                        <div>
-                            <label for="fasting_glucose">Fasting Glucose (mg/dL):</label>
-                            <input type="number" id="fasting_glucose" name="fasting_glucose" min="60" max="300" required>
-                        </div>
-                        <div>
-                            <label for="insulin_level">Insulin Level (μU/mL):</label>
-                            <input type="number" id="insulin_level" name="insulin_level" min="0" max="100" step="0.1" required>
-                        </div>
-                        <div>
-                            <label for="heart_rate">Heart Rate (bpm):</label>
-                            <input type="number" id="heart_rate" name="heart_rate" min="40" max="200" required>
-                        </div>
-                        
-                        <h3>Meal Information</h3>
-                        <div>
-                            <label for="meal_type">Meal Type:</label>
-                            <select id="meal_type" name="meal_type" required>
-                                <option value="Breakfast">Breakfast</option>
-                                <option value="Lunch">Lunch</option>
-                                <option value="Dinner">Dinner</option>
-                                <option value="Snack">Snack</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="calories">Calories:</label>
-                            <input type="number" id="calories" name="calories" min="0" max="2000" required>
-                        </div>
-                        <div>
-                            <label for="carbs">Carbohydrates (g):</label>
-                            <input type="number" id="carbs" name="carbs" min="0" max="300" required>
-                        </div>
-                        <div>
-                            <label for="protein">Protein (g):</label>
-                            <input type="number" id="protein" name="protein" min="0" max="200" required>
-                        </div>
-                        <div>
-                            <label for="fat">Fat (g):</label>
-                            <input type="number" id="fat" name="fat" min="0" max="100" required>
-                        </div>
-                        <div>
-                            <label for="fiber">Fiber (g):</label>
-                            <input type="number" id="fiber" name="fiber" min="0" max="50" required>
-                        </div>
-                        
-                        <h3>Current Glucose Status</h3>
-                        <div>
-                            <label for="current_glucose">Current Glucose (mg/dL):</label>
-                            <input type="number" id="current_glucose" name="current_glucose" min="60" max="400" required>
-                        </div>
-                        <div>
-                            <label for="glucose_trend">Glucose Trend (mg/dL per hour):</label>
-                            <input type="number" id="glucose_trend" name="glucose_trend" min="-20" max="20" step="0.1" required>
-                        </div>
-                        
-                        <div>
-                            <button type="submit">Predict Glucose</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        return html
+    return render_template('index.html', model_loaded=model_loaded, model_error=model_error)
+
+@app.route('/health')
+def health():
+    """Health check endpoint for monitoring"""
+    status = {
+        'status': 'ok',
+        'timestamp': datetime.datetime.now().isoformat(),
+        'model_loaded': model_loaded
+    }
+    
+    if not model_loaded:
+        status['status'] = 'warning'
+        status['model_error'] = model_error
+    
+    return jsonify(status)
 
 @app.route('/predict', methods=['POST'])
 def predict():
     if not model_loaded:
-        error_message = model_error or "Model not loaded. Please ensure the model file exists and is compatible."
+        error_message = model_error or "Model not loaded. Please ensure glucose_prediction_model.pkl exists and is compatible."
         if request.content_type == 'application/json':
             return jsonify({'error': error_message}), 500
         else:
-            html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Prediction Error</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }}
-                    .container {{ max-width: 800px; margin: 0 auto; }}
-                    .error {{ color: #e74c3c; background: #fadbd8; padding: 10px; border-radius: 5px; }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>Prediction Error</h1>
-                    <div class="error">
-                        <p>{error_message}</p>
-                    </div>
-                    <p><a href="/">Back to Home</a></p>
-                </div>
-            </body>
-            </html>
-            """
-            return html
+            return render_template('error.html', 
+                                 error_title="Model Loading Error",
+                                 error_message=error_message)
     
     try:
         # Get user inputs from form
@@ -279,87 +157,25 @@ def predict():
             'meal_type': meal_info['meal_type'],
             'carbs': meal_info['carbs'],
             'accuracy': round(accuracy),
-            'message': get_recommendation(prediction, features['is_diabetic'])
+            'message': get_recommendation(prediction, features['is_diabetic']),
+            'expected_range_low': round(prediction - adjusted_rmse, 1),
+            'expected_range_high': round(prediction + adjusted_rmse, 1)
         }
 
-        try:
-            return render_template('result.html', result=result)
-        except Exception as e:
-            # Fallback if template not found
-            html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Prediction Result</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }}
-                    .container {{ max-width: 800px; margin: 0 auto; }}
-                    .result {{ background: #eaf7fd; padding: 20px; border-radius: 10px; margin-bottom: 20px; }}
-                    h1 {{ color: #3498db; }}
-                    .prediction {{ font-size: 24px; font-weight: bold; margin: 20px 0; }}
-                    .accuracy {{ color: #27ae60; font-weight: bold; }}
-                    .recommendation {{ background: #e8f8f5; padding: 15px; border-radius: 5px; }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>Your Glucose Prediction</h1>
-                    
-                    <div class="result">
-                        <div class="prediction">
-                            <p>Predicted Blood Glucose: <span>{result['prediction']} mg/dL</span></p>
-                            <p>Current Blood Glucose: {result['current_glucose']} mg/dL</p>
-                        </div>
-                        
-                        <div class="details">
-                            <p>Diabetic Status: {result['is_diabetic']}</p>
-                            <p>Meal Type: {result['meal_type']}</p>
-                            <p>Carbohydrates: {result['carbs']}g</p>
-                            <p>Prediction Accuracy: <span class="accuracy">{result['accuracy']}%</span></p>
-                        </div>
-                        
-                        <div class="recommendation">
-                            <h3>Recommendation:</h3>
-                            <p>{result['message']}</p>
-                        </div>
-                    </div>
-                    
-                    <p><a href="/">Make Another Prediction</a></p>
-                </div>
-            </body>
-            </html>
-            """
-            return html
+        return render_template('result.html', result=result)
 
     except Exception as e:
         app.logger.error("Error during prediction: %s", e, exc_info=True)
         error_msg = str(e)
+        error_trace = traceback.format_exc()
+        
         if request.content_type == 'application/json':
             return jsonify({'error': f'Prediction error: {error_msg}'}), 500
         else:
-            html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Prediction Error</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }}
-                    .container {{ max-width: 800px; margin: 0 auto; }}
-                    .error {{ color: #e74c3c; background: #fadbd8; padding: 10px; border-radius: 5px; }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>Prediction Error</h1>
-                    <div class="error">
-                        <p>Error during prediction: {error_msg}</p>
-                    </div>
-                    <p><a href="/">Back to Home</a></p>
-                </div>
-            </body>
-            </html>
-            """
-            return html
+            return render_template('error.html', 
+                                 error_title="Prediction Error",
+                                 error_message=f"Error during prediction: {error_msg}",
+                                 technical_details=error_trace)
 
 
 def get_recommendation(predicted_glucose, is_diabetic):

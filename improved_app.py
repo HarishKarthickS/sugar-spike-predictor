@@ -1,44 +1,91 @@
-from flask import Flask, render_template, request, jsonify
-import pandas as pd
-import numpy as np
-import joblib
+# pylint: disable=import-error
+from flask import Flask, render_template, request, jsonify  # type: ignore
+import pandas as pd  # type: ignore
+import numpy as np  # type: ignore
+import joblib  # type: ignore
 import datetime
 import os
+import logging
+import pickle
+import traceback
+from pathlib import Path
+import random
+import json
 
 app = Flask(__name__)
 
-# Load the specialized models
+# Configure logging
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
+
+# Global variables
+diabetic_model = None
+non_diabetic_model = None
+models_loaded = False
+model_error = None
+
+# Model paths
 diabetic_model_path = 'glucose_prediction_model_diabetic.pkl'
 non_diabetic_model_path = 'glucose_prediction_model_non_diabetic.pkl'
 
-models_loaded = True
-
-if os.path.exists(diabetic_model_path) and os.path.exists(non_diabetic_model_path):
-    try:
-        diabetic_model = joblib.load(diabetic_model_path)
-        non_diabetic_model = joblib.load(non_diabetic_model_path)
-        print("Specialized models loaded successfully")
-    except Exception as e:
-        print(f"Error loading models: {e}")
-        models_loaded = False
-else:
-    print(f"Warning: Model files not found. Please run improved_glucose_model.py first.")
-    models_loaded = False
-
-# Performance metrics from model training (update these based on actual training results)
+# Performance metrics from model training
 DIABETIC_RMSE = 28.5  # mg/dL (expected improvement from ~34 mg/dL)
 NON_DIABETIC_RMSE = 18.7  # mg/dL (expected improvement from ~22 mg/dL)
 
+def load_models():
+    """Load specialized prediction models with fallbacks"""
+    global diabetic_model, non_diabetic_model, models_loaded, model_error
+    
+    if os.path.exists(diabetic_model_path) and os.path.exists(non_diabetic_model_path):
+        try:
+            # Try joblib first (common for sklearn models)
+            try:
+                app.logger.info(f"Loading models with joblib from {diabetic_model_path} and {non_diabetic_model_path}")
+                diabetic_model = joblib.load(diabetic_model_path)
+                non_diabetic_model = joblib.load(non_diabetic_model_path)
+                models_loaded = True
+                app.logger.info("Specialized models loaded successfully with joblib")
+            except Exception as e1:
+                app.logger.warning(f"Joblib loading failed: {e1}, trying pickle")
+                # Try pickle as fallback
+                try:
+                    with open(diabetic_model_path, 'rb') as f1, open(non_diabetic_model_path, 'rb') as f2:
+                        diabetic_model = pickle.load(f1)
+                        non_diabetic_model = pickle.load(f2)
+                    models_loaded = True
+                    app.logger.info("Specialized models loaded successfully with pickle")
+                except Exception as e2:
+                    model_error = f"Failed to load models: {str(e1)} and {str(e2)}"
+                    app.logger.error(model_error)
+        except Exception as e:
+            model_error = f"Error loading models: {str(e)}"
+            app.logger.error(model_error)
+    else:
+        missing = []
+        if not os.path.exists(diabetic_model_path):
+            missing.append(diabetic_model_path)
+        if not os.path.exists(non_diabetic_model_path):
+            missing.append(non_diabetic_model_path)
+        model_error = f"Model files not found: {', '.join(missing)}"
+        app.logger.warning(model_error)
+
+# Try to load models at startup
+load_models()
+
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_template('index.html', models_loaded=models_loaded, model_error=model_error)
 
 @app.route('/predict', methods=['POST'])
 def predict():
     if not models_loaded:
-        return jsonify({
-            'error': 'Models not loaded. Please run improved_glucose_model.py first.'
-        }), 500
+        error_message = model_error or "Models not loaded. Please ensure model files exist and are compatible."
+        if request.content_type == 'application/json':
+            return jsonify({'error': error_message}), 500
+        else:
+            return render_template('error.html', 
+                                 error_title="Model Loading Error",
+                                 error_message=error_message)
     
     try:
         # Get user inputs from form
@@ -68,10 +115,11 @@ def predict():
         except (ValueError, TypeError):
             current_glucose = 100.0
             glucose_trend = 0.0
-            print("Warning: Could not convert glucose values to float, using defaults")
+            app.logger.warning("Could not convert glucose values to float, using defaults")
         
         # Determine if diabetic
         is_diabetic = person_info.get('a1c', 0) >= 6.5
+        app.logger.info(f"User identified as {'diabetic' if is_diabetic else 'non-diabetic'} based on A1C of {person_info.get('a1c', 0)}")
         
         # Create feature dictionary for prediction
         features = {
@@ -105,6 +153,7 @@ def predict():
                       'afternoon' if 14 <= time_of_day < 18 else \
                       'evening' if 18 <= time_of_day < 24 else 'early_morning'
         
+        # Enhanced features for better prediction
         enhanced_features = {
             'glycemic_load': features['meal_carbs'] * (1 - features['meal_fiber'] / (features['meal_carbs'] + 1)),
             'carb_insulin_ratio': features['meal_carbs'] / (features['insulin_level'] + 1),
@@ -115,10 +164,13 @@ def predict():
             'meal_energy_density': features['meal_calories'] / (features['meal_carbs'] + features['meal_protein'] + features['meal_fat'] + 1),
             'glucose_momentum': features['glucose_slope_30m'] * features['glucose_at_meal'],
             'age_a1c': features['age'] * features['a1c'],
+            'insulin_sensitivity_factor': 1800 / (features['insulin_level'] + 45),  # Estimated ISF
+            'stress_factor': 1.0,  # Default, can be modified based on user input in future versions
         }
         
         # Combine features
         features.update(enhanced_features)
+        app.logger.debug(f"Prepared features for prediction: {features}")
         
         # Convert to DataFrame
         X_pred = pd.DataFrame([features])
@@ -128,13 +180,16 @@ def predict():
             model = diabetic_model
             base_rmse = DIABETIC_RMSE
             accuracy_base = max(90, 100 - (DIABETIC_RMSE / 1.2))
+            app.logger.info(f"Using diabetic model with base RMSE of {DIABETIC_RMSE} mg/dL")
         else:
             model = non_diabetic_model
             base_rmse = NON_DIABETIC_RMSE
             accuracy_base = max(92, 100 - (NON_DIABETIC_RMSE / 1.0))
+            app.logger.info(f"Using non-diabetic model with base RMSE of {NON_DIABETIC_RMSE} mg/dL")
         
         # Make prediction
         prediction = float(model.predict(X_pred)[0])
+        app.logger.info(f"Raw model prediction: {prediction} mg/dL")
         
         # Adjust prediction based on meal composition for edge cases
         # High carb + low fiber = faster spike, high protein+fat = delayed response
@@ -142,9 +197,11 @@ def predict():
         if carb_to_fiber_ratio > 10 and features['meal_carbs'] > 60:
             # High simple carbs - quicker and higher spike
             prediction *= 1.1
+            app.logger.debug(f"Adjusted prediction up for high simple carbs: {prediction} mg/dL")
         elif features['fat_protein_to_carb'] > 2 and features['meal_carbs'] > 30:
             # High fat/protein with moderate carbs - delayed and extended response
             prediction *= 0.95
+            app.logger.debug(f"Adjusted prediction down for high fat/protein: {prediction} mg/dL")
         
         # Calculate adjusted accuracy based on meal complexity
         # More complex meals are harder to predict
@@ -153,6 +210,7 @@ def predict():
         
         accuracy = accuracy_base / meal_complexity
         accuracy = min(99, max(85, accuracy))  # Ensure reasonable range
+        app.logger.debug(f"Calculated prediction accuracy: {accuracy}%")
         
         # Generate personalized recommendation
         recommendation = get_recommendation(prediction, is_diabetic, meal_info)
@@ -173,12 +231,19 @@ def predict():
         return render_template('result.html', result=result)
         
     except Exception as e:
-        print(f"Error during prediction: {e}")
-        import traceback
-        traceback.print_exc()  # Print full traceback for debugging
-        return jsonify({
-            'error': f'Prediction error: {str(e)}'
-        }), 500
+        app.logger.error(f"Error during prediction: {e}")
+        app.logger.error(traceback.format_exc())  # Log full traceback
+        
+        error_msg = str(e)
+        error_trace = traceback.format_exc()
+        
+        if request.content_type == 'application/json':
+            return jsonify({'error': f'Prediction error: {error_msg}'}), 500
+        else:
+            return render_template('error.html', 
+                                 error_title="Prediction Error",
+                                 error_message=f"Error during prediction: {error_msg}",
+                                 technical_details=error_trace)
 
 def get_recommendation(predicted_glucose, is_diabetic, meal_info):
     """
@@ -189,7 +254,10 @@ def get_recommendation(predicted_glucose, is_diabetic, meal_info):
     protein = meal_info.get('protein', 0)
     fat = meal_info.get('fat', 0)
     
-    carb_quality = "low" if fiber == 0 or (carbs / fiber) > 10 else "moderate" if (carbs / fiber) > 5 else "high"
+    # Avoid division by zero
+    carb_quality = "low" if fiber == 0 or (carbs / (fiber + 0.001)) > 10 else \
+                  "moderate" if (carbs / (fiber + 0.001)) > 5 else "high"
+                  
     fat_protein_balance = (fat + protein) / (carbs + 1)
     
     if is_diabetic:
@@ -208,7 +276,7 @@ def get_recommendation(predicted_glucose, is_diabetic, meal_info):
             else:
                 return f"{base_message} Consider taking a 15-20 minute walk after eating to help lower glucose levels. Your fiber intake ({fiber}g) is helping moderate the glucose response."
         else:
-            return "Your predicted glucose is within a good range for a diabetic individual after a meal. This meal composition works well for your metabolism."
+            return f"Your predicted glucose is within a good range for a diabetic individual after a meal. This meal composition works well for your metabolism. The ratio of protein+fat to carbs ({fat_protein_balance:.1f}) is helping to moderate glucose response."
     else:
         if predicted_glucose > 140:
             base_message = "Your predicted glucose is higher than typical for a non-diabetic person."
@@ -219,7 +287,7 @@ def get_recommendation(predicted_glucose, is_diabetic, meal_info):
         elif predicted_glucose > 120:
             return f"Your predicted glucose is slightly elevated. Consider pairing carbohydrates with protein and healthy fats. Your current ratio of protein+fat to carbs is {fat_protein_balance:.1f}; aim for at least 0.8 for better glucose control."
         else:
-            return "Your predicted glucose is within the normal range for a non-diabetic person after a meal. This meal composition works well for your metabolism."
+            return f"Your predicted glucose is within the normal range for a non-diabetic person after a meal. This meal composition (with {carbs}g carbs, {protein}g protein, {fat}g fat) works well for your metabolism."
 
 if __name__ == '__main__':
     app.run(debug=True) 
