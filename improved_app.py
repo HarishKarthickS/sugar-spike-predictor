@@ -7,6 +7,7 @@ import datetime
 import os
 import logging
 import pickle
+import sys
 import traceback
 from pathlib import Path
 import random
@@ -37,6 +38,16 @@ def load_models():
     """Load specialized prediction models"""
     global diabetic_model, non_diabetic_model, models_loaded, model_error
     
+    # Print version information
+    app.logger.info(f"Using numpy version: {np.__version__}")
+    app.logger.info(f"Using pandas version: {pd.__version__}")
+    app.logger.info(f"Python version: {sys.version}")
+    try:
+        import sklearn
+        app.logger.info(f"Using sklearn version: {sklearn.__version__}")
+    except Exception as e:
+        app.logger.warning(f"Could not determine sklearn version: {e}")
+    
     if os.path.exists(diabetic_model_path) and os.path.exists(non_diabetic_model_path):
         try:
             # Try joblib first (common for sklearn models)
@@ -46,8 +57,25 @@ def load_models():
                 non_diabetic_model = joblib.load(non_diabetic_model_path)
                 models_loaded = True
                 app.logger.info("Specialized models loaded successfully with joblib")
-            except Exception as e1:
-                app.logger.warning(f"Joblib loading failed: {e1}, trying pickle")
+            except ImportError as e:
+                if "numpy._core" in str(e):
+                    app.logger.error(f"Numpy version compatibility issue: {e}")
+                    models_loaded = False
+                    model_error = "Models were trained with a different version of numpy. Please either update the models or adjust the deployment environment."
+                else:
+                    app.logger.warning(f"Joblib loading failed due to import error: {e}, trying pickle")
+                    try:
+                        with open(diabetic_model_path, 'rb') as f1, open(non_diabetic_model_path, 'rb') as f2:
+                            diabetic_model = pickle.load(f1)
+                            non_diabetic_model = pickle.load(f2)
+                        models_loaded = True
+                        app.logger.info("Specialized models loaded successfully with pickle")
+                    except Exception as e2:
+                        app.logger.error(f"Failed to load models: {str(e)} and {str(e2)}")
+                        models_loaded = False
+                        model_error = f"Could not load models due to version incompatibility. The models were likely trained with sklearn 1.6.1 but the deployment environment has a different version."
+            except Exception as e:
+                app.logger.warning(f"Joblib loading failed: {e}, trying pickle")
                 # Try pickle as fallback
                 try:
                     with open(diabetic_model_path, 'rb') as f1, open(non_diabetic_model_path, 'rb') as f2:
@@ -56,7 +84,7 @@ def load_models():
                     models_loaded = True
                     app.logger.info("Specialized models loaded successfully with pickle")
                 except Exception as e2:
-                    app.logger.error(f"Failed to load models: {str(e1)} and {str(e2)}")
+                    app.logger.error(f"Failed to load models: {str(e)} and {str(e2)}")
                     models_loaded = False
                     model_error = f"Could not load models: {str(e2)}"
         except Exception as e:
@@ -78,12 +106,23 @@ load_models()
 
 @app.route('/')
 def home():
-    return render_template('index.html', models_loaded=models_loaded, model_error=model_error)
+    versions = {
+        "numpy": np.__version__,
+        "pandas": pd.__version__,
+        "python": sys.version
+    }
+    try:
+        import sklearn
+        versions["sklearn"] = sklearn.__version__
+    except:
+        versions["sklearn"] = "unknown"
+        
+    return render_template('index.html', models_loaded=models_loaded, model_error=model_error, versions=versions)
 
 @app.route('/predict', methods=['POST'])
 def predict():
     if not models_loaded:
-        error_message = model_error or "Models not loaded. Please ensure model files exist and are compatible."
+        error_message = model_error or "Models not loaded. Please ensure model files exist and are compatible with your environment's Python, numpy, and scikit-learn versions."
         if request.content_type == 'application/json':
             return jsonify({'error': error_message}), 500
         else:

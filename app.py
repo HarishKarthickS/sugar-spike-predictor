@@ -7,6 +7,7 @@ import datetime
 import os
 import logging
 import pickle
+import sys
 import traceback
 from pathlib import Path
 from sklearn.ensemble import RandomForestRegressor  # type: ignore
@@ -29,20 +30,41 @@ def load_model():
     
     if os.path.exists(model_path):
         try:
+            # Print version information
+            app.logger.info(f"Using numpy version: {np.__version__}")
+            app.logger.info(f"Using sklearn version: {pd.__version__}")
+            app.logger.info(f"Python version: {sys.version}")
+            
             # Try different loading methods
             try:
                 model = joblib.load(model_path)
                 model_loaded = True
                 app.logger.info("Model loaded successfully from %s", model_path)
-            except Exception as e1:
-                app.logger.warning("Joblib load failed: %s, trying pickle", e1)
+            except ImportError as e:
+                if "numpy._core" in str(e):
+                    app.logger.warning("Numpy version compatibility issue: %s", e)
+                    model_loaded = False
+                    model_error = "Model was trained with a different version of numpy. Please update the model to match the deployment environment."
+                else:
+                    app.logger.warning("Joblib load failed due to import error: %s, trying pickle", e)
+                    try:
+                        with open(model_path, 'rb') as f:
+                            model = pickle.load(f)
+                        model_loaded = True
+                        app.logger.info("Model loaded successfully with pickle from %s", model_path)
+                    except Exception as e2:
+                        app.logger.error("Failed to load model: %s and %s", str(e), str(e2))
+                        model_loaded = False
+                        model_error = f"Could not load model due to version incompatibility: {str(e2)}"
+            except Exception as e:
+                app.logger.warning("Joblib load failed: %s, trying pickle", e)
                 try:
                     with open(model_path, 'rb') as f:
                         model = pickle.load(f)
                     model_loaded = True
                     app.logger.info("Model loaded successfully with pickle from %s", model_path)
                 except Exception as e2:
-                    app.logger.error("Failed to load model: %s and %s", str(e1), str(e2))
+                    app.logger.error("Failed to load model: %s and %s", str(e), str(e2))
                     model_loaded = False
                     model_error = f"Could not load model: {str(e2)}"
         except Exception as e:
@@ -59,7 +81,12 @@ load_model()
 
 @app.route('/')
 def home():
-    return render_template('index.html', model_loaded=model_loaded, model_error=model_error)
+    versions = {
+        "numpy": np.__version__,
+        "pandas": pd.__version__,
+        "python": sys.version
+    }
+    return render_template('index.html', model_loaded=model_loaded, model_error=model_error, versions=versions)
 
 @app.route('/health')
 def health():
@@ -67,7 +94,9 @@ def health():
     status = {
         'status': 'ok',
         'timestamp': datetime.datetime.now().isoformat(),
-        'model_loaded': model_loaded
+        'model_loaded': model_loaded,
+        'numpy_version': np.__version__,
+        'python_version': sys.version
     }
     
     if not model_loaded:
@@ -79,7 +108,7 @@ def health():
 @app.route('/predict', methods=['POST'])
 def predict():
     if not model_loaded:
-        error_message = model_error or "Model not loaded. Please ensure glucose_prediction_model.pkl exists and is compatible."
+        error_message = model_error or "Model not loaded. Please ensure glucose_prediction_model.pkl exists and is compatible with your environment."
         if request.content_type == 'application/json':
             return jsonify({'error': error_message}), 500
         else:
