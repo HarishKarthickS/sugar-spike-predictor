@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalized Glucose Prediction</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 20px;
+        }
+        .container {
+            max-width: 800px;
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #0d6efd;
+            margin-bottom: 30px;
+        }
+        .section-title {
+            color: #0d6efd;
+            margin-top: 20px;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+            font-weight: 500;
+        }
+        .btn-primary {
+            margin-top: 20px;
+            width: 100%;
+            padding: 10px;
+        }
+        .form-text {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Personalized Glucose Prediction</h1>
+        
+        <div class="form-text text-center">
+            This tool predicts your blood glucose level 2 hours after eating a meal, based on your personal health data and the meal's nutritional content.
+        </div>
+        
+        <form action="/predict" method="POST">
+            <div class="row">
+                <div class="col-md-6">
+                    <h2 class="section-title">Personal Information</h2>
+                    
+                    <div class="mb-3">
+                        <label for="age" class="form-label">Age</label>
+                        <input type="number" class="form-control" id="age" name="age" required min="1" max="120">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="gender" class="form-label">Gender</label>
+                        <select class="form-select" id="gender" name="gender" required>
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="bmi" class="form-label">BMI</label>
+                        <input type="number" step="0.1" class="form-control" id="bmi" name="bmi" required min="10" max="60">
+                        <div class="form-text">Body Mass Index (kg/m²)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="a1c" class="form-label">A1c (%)</label>
+                        <input type="number" step="0.1" class="form-control" id="a1c" name="a1c" required min="3" max="15">
+                        <div class="form-text">Hemoglobin A1c percentage from your most recent lab test</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="fasting_glucose" class="form-label">Fasting Glucose (mg/dL)</label>
+                        <input type="number" class="form-control" id="fasting_glucose" name="fasting_glucose" required min="50" max="400">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="insulin_level" class="form-label">Insulin Level</label>
+                        <input type="number" step="0.1" class="form-control" id="insulin_level" name="insulin_level" required min="0" max="100">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="heart_rate" class="form-label">Current Heart Rate (bpm)</label>
+                        <input type="number" class="form-control" id="heart_rate" name="heart_rate" required min="40" max="200">
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <h2 class="section-title">Current Glucose Status</h2>
+                    
+                    <div class="mb-3">
+                        <label for="current_glucose" class="form-label">Current Glucose Level (mg/dL)</label>
+                        <input type="number" class="form-control" id="current_glucose" name="current_glucose" required min="50" max="400">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="glucose_trend" class="form-label">Glucose Trend (mg/dL per minute)</label>
+                        <input type="number" step="0.1" class="form-control" id="glucose_trend" name="glucose_trend" required min="-5" max="5" value="0">
+                        <div class="form-text">Positive value = rising, Negative = falling, 0 = stable</div>
+                    </div>
+                    
+                    <h2 class="section-title">Meal Information</h2>
+                    
+                    <div class="mb-3">
+                        <label for="meal_type" class="form-label">Meal Type</label>
+                        <select class="form-select" id="meal_type" name="meal_type" required>
+                            <option value="Breakfast">Breakfast</option>
+                            <option value="Lunch">Lunch</option>
+                            <option value="Dinner">Dinner</option>
+                            <option value="Snack">Snack</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="calories" class="form-label">Calories</label>
+                        <input type="number" class="form-control" id="calories" name="calories" required min="0" max="3000">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="carbs" class="form-label">Carbohydrates (g)</label>
+                        <input type="number" class="form-control" id="carbs" name="carbs" required min="0" max="500">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="protein" class="form-label">Protein (g)</label>
+                        <input type="number" class="form-control" id="protein" name="protein" required min="0" max="200">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="fat" class="form-label">Fat (g)</label>
+                        <input type="number" class="form-control" id="fat" name="fat" required min="0" max="200">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="fiber" class="form-label">Fiber (g)</label>
+                        <input type="number" class="form-control" id="fiber" name="fiber" required min="0" max="100">
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Predict Glucose Level</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 
