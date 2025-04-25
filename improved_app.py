@@ -33,36 +33,8 @@ non_diabetic_model_path = 'glucose_prediction_model_non_diabetic.pkl'
 DIABETIC_RMSE = 28.5  # mg/dL (expected improvement from ~34 mg/dL)
 NON_DIABETIC_RMSE = 18.7  # mg/dL (expected improvement from ~22 mg/dL)
 
-# Function to create fallback models if loading fails
-def create_fallback_models():
-    """Create simple fallback models when the pickled models can't be loaded"""
-    global diabetic_model, non_diabetic_model, models_loaded, model_error
-    
-    app.logger.warning("Creating fallback models since pickled models failed to load")
-    
-    # Create simple random forest models with different parameters for diabetic/non-diabetic
-    diabetic_model = RandomForestRegressor(n_estimators=50, max_depth=6, random_state=42)
-    non_diabetic_model = RandomForestRegressor(n_estimators=40, max_depth=5, random_state=42)
-    
-    # Create synthetic data with different characteristics for each model
-    np.random.seed(42)
-    X_synthetic = np.random.rand(100, 20)  # 20 features
-    
-    # Higher variance for diabetic glucose values (70-250)
-    y_diabetic = 70 + 180 * np.random.rand(100)
-    # Lower variance for non-diabetic glucose values (70-180)
-    y_non_diabetic = 70 + 110 * np.random.rand(100)
-    
-    # Fit the models
-    diabetic_model.fit(X_synthetic, y_diabetic)
-    non_diabetic_model.fit(X_synthetic, y_non_diabetic)
-    
-    app.logger.info("Fallback models created successfully")
-    models_loaded = True
-    model_error = None
-
 def load_models():
-    """Load specialized prediction models with fallbacks"""
+    """Load specialized prediction models"""
     global diabetic_model, non_diabetic_model, models_loaded, model_error
     
     if os.path.exists(diabetic_model_path) and os.path.exists(non_diabetic_model_path):
@@ -85,12 +57,12 @@ def load_models():
                     app.logger.info("Specialized models loaded successfully with pickle")
                 except Exception as e2:
                     app.logger.error(f"Failed to load models: {str(e1)} and {str(e2)}")
-                    app.logger.info("Using fallback models instead")
-                    create_fallback_models()
+                    models_loaded = False
+                    model_error = f"Could not load models: {str(e2)}"
         except Exception as e:
             app.logger.error(f"Error loading models: {str(e)}")
-            app.logger.info("Using fallback models instead")
-            create_fallback_models()
+            models_loaded = False
+            model_error = f"Error loading models: {str(e)}"
     else:
         missing = []
         if not os.path.exists(diabetic_model_path):
@@ -98,8 +70,8 @@ def load_models():
         if not os.path.exists(non_diabetic_model_path):
             missing.append(non_diabetic_model_path)
         app.logger.warning(f"Model files not found: {', '.join(missing)}")
-        app.logger.info("Using fallback models instead")
-        create_fallback_models()
+        models_loaded = False
+        model_error = f"Model files not found: {', '.join(missing)}"
 
 # Try to load models at startup
 load_models()
