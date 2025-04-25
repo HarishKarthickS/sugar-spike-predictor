@@ -153,4 +153,4 @@ def get_recommendation(predicted_glucose, is_diabetic):
             return "Your predicted glucose is within the normal range for a non-diabetic person after a meal."
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001) 
+    app.run(debug=True) 
