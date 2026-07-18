@@ -10,19 +10,12 @@ import pandas as pd
 from flask import Blueprint, current_app, jsonify, render_template, request
 
 from app.predictor import load_models, models_status, predict_glucose
+from app.validation import parse_prediction_form
 
 bp = Blueprint("main", __name__)
 
 
-@bp.before_app_request
-def _ensure_models_loaded() -> None:
-    loaded, _ = models_status()
-    if not loaded:
-        load_models()
-
-
-@bp.get("/")
-def home():
+def _home_context(**extra):
     loaded, error = models_status()
     versions = {
         "numpy": np.__version__,
@@ -36,12 +29,28 @@ def home():
     except Exception:  # noqa: BLE001
         versions["sklearn"] = "unknown"
 
-    return render_template(
-        "index.html",
-        models_loaded=loaded,
-        model_error=error,
-        versions=versions,
-    )
+    context = {
+        "models_loaded": loaded,
+        "model_error": error,
+        "versions": versions,
+        "errors": {},
+        "values": {},
+        "form_error": None,
+    }
+    context.update(extra)
+    return context
+
+
+@bp.before_app_request
+def _ensure_models_loaded() -> None:
+    loaded, _ = models_status()
+    if not loaded:
+        load_models()
+
+
+@bp.get("/")
+def home():
+    return render_template("index.html", **_home_context())
 
 
 @bp.post("/predict")
@@ -57,32 +66,30 @@ def predict():
             error_message=message,
         )
 
-    try:
-        person = {
-            "age": float(request.form.get("age", 0)),
-            "gender": request.form.get("gender", "Unknown"),
-            "bmi": float(request.form.get("bmi", 0)),
-            "a1c": float(request.form.get("a1c", 0)),
-            "fasting_glucose": float(request.form.get("fasting_glucose", 0)),
-            "insulin_level": float(request.form.get("insulin_level", 0)),
-            "heart_rate": float(request.form.get("heart_rate", 70)),
-        }
-        meal = {
-            "meal_type": request.form.get("meal_type", "Unknown"),
-            "calories": float(request.form.get("calories", 0)),
-            "carbs": float(request.form.get("carbs", 0)),
-            "protein": float(request.form.get("protein", 0)),
-            "fat": float(request.form.get("fat", 0)),
-            "fiber": float(request.form.get("fiber", 0)),
-        }
-        try:
-            current_glucose = float(request.form.get("current_glucose", 100))
-            glucose_trend = float(request.form.get("glucose_trend", 0))
-        except (TypeError, ValueError):
-            current_glucose = 100.0
-            glucose_trend = 0.0
+    payload, errors, values = parse_prediction_form(request.form)
+    if errors:
+        if request.is_json:
+            return jsonify({"error": "Validation failed", "fields": errors}), 400
+        return (
+            render_template(
+                "index.html",
+                **_home_context(
+                    errors=errors,
+                    values=values,
+                    form_error="Please fix the highlighted fields and try again.",
+                ),
+            ),
+            400,
+        )
 
-        result = predict_glucose(person, meal, current_glucose, glucose_trend)
+    try:
+        assert payload is not None
+        result = predict_glucose(
+            payload["person"],
+            payload["meal"],
+            payload["current_glucose"],
+            payload["glucose_trend"],
+        )
         return render_template("result.html", result=result)
     except Exception as exc:  # noqa: BLE001
         current_app.logger.exception("Prediction failed")

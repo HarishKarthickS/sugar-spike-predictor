@@ -161,9 +161,29 @@ h1 {
   overflow: hidden;
 }
 
-.glucose-gauge {
-  height: 100%;
-  background: linear-gradient(90deg, #198754, #ffc107, #dc3545);
-  border-radius: 15px;
+.invalid-feedback {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.is-invalid ~ .invalid-feedback,
+.was-validated .form-control:invalid ~ .invalid-feedback {
+  color: var(--danger);
+}
+
+.form-control.is-valid,
+.form-select.is-valid {
+  border-color: #198754;
+}
+
+.form-control.is-invalid,
+.form-select.is-invalid {
+  border-color: var(--danger);
+}
+
+button.btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 

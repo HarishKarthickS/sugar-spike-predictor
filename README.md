@@ -4,6 +4,8 @@ Open-source post-meal blood glucose prediction. Given personal health metrics an
 nutrition, the app estimates glucose about two hours later using **population-specific**
 models (diabetic vs non-diabetic).
 
+**Live demo:** [https://sugar-spike-predictor-92g4.onrender.com/](https://sugar-spike-predictor-92g4.onrender.com/)
+
 > Not medical advice. For research and education only. Always follow your clinician’s guidance.
 
 ## Features
@@ -11,22 +13,24 @@ models (diabetic vs non-diabetic).
 - Feature engineering: glycemic load, carb–insulin ratio, fat/protein–carb balance, glucose momentum, age×A1c, time-of-day bins
 - Specialized models: **XGBoost** for diabetic cohort, **HistGradientBoosting** for non-diabetic
 - sklearn `Pipeline` + `ColumnTransformer` (impute → scale / one-hot → feature selection → regressor)
-- Flask web UI with recommendations and expected RMSE ranges
-- Trainable from CGM + bio CSV data
+- Flask web UI with client + server form validation, recommendations, and expected RMSE ranges
+- Trainable from CGM + bio CSV data (optional — pickles in `artifacts/` ship with the repo)
 
 ## Project layout
 
 ```text
-app/                 Flask app (routes, features, predictor, templates, static)
+app/                 Flask app (routes, validation, features, predictor, templates, static)
 artifacts/           Trained model pickles (joblib)
 training/            Data prep + baseline / specialized training scripts
-data/                Place raw CGM/bio CSVs here (gitignored contents)
+data/                Place raw CGM/bio CSVs here when retraining (gitignored contents)
 docs/assets/         Plots and docs assets
 tests/               Unit tests
 run.py               Local entrypoint
 ```
 
 ## Quick start
+
+Use **Python 3.10–3.12** (Render uses 3.11.9 via `runtime.txt`).
 
 ```bash
 python -m venv .venv
@@ -39,9 +43,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-Open http://localhost:5000
-
-Health check: http://localhost:5000/health
+Open http://localhost:5000 — health probe: http://localhost:5000/health
 
 Production-style serve:
 
@@ -49,42 +51,35 @@ Production-style serve:
 gunicorn -b 0.0.0.0:5000 "run:app"
 ```
 
-## Training
+## Form validation
+
+Inputs are checked in the browser and again on the server:
+
+- Required fields and numeric ranges (age, BMI, A1c, glucose, macros, etc.)
+- Gender / meal type must be from the allowed lists
+- Fiber cannot exceed carbohydrates
+- Calories are cross-checked against carbs/protein/fat energy estimate
+- Invalid submissions re-render the form with field errors (values preserved)
+
+## Training (optional)
+
+`data/` is empty in git on purpose — raw CGM/bio CSVs are local-only. The deployed app loads models from `artifacts/`.
 
 1. Put `bio.csv` and `CGMacros-*.csv` under `data/`.
-2. Merge:
-
-```bash
-python training/data_preparation.py
-```
-
-3. Baseline model:
-
-```bash
-python training/train_baseline.py
-```
-
-4. Specialized diabetic / non-diabetic models (writes into `artifacts/`):
-
-```bash
-python training/train_specialized.py
-```
+2. `python training/data_preparation.py`
+3. `python training/train_baseline.py`
+4. `python training/train_specialized.py` (writes pickles into `artifacts/`)
 
 ## Stack
 
 Python, pandas, numpy, scikit-learn, XGBoost, Flask, gunicorn, matplotlib/seaborn
 
+## Deploy
+
+Hosted on Render: [https://sugar-spike-predictor-92g4.onrender.com/](https://sugar-spike-predictor-92g4.onrender.com/)
+
+Config in-repo: `render.yaml`, `Procfile`, `runtime.txt`. Pushing to `main` redeploys when the Render service is linked to this GitHub repo.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-## Deploy (Render)
-
-This repo includes `render.yaml` and a `Procfile`.
-
-1. Go to [https://render.com](https://render.com) and sign in with GitHub.
-2. **New → Blueprint** (or Web Service) → select `HarishKarthickS/sugar-spike-predictor`.
-3. Render will install deps and run: `gunicorn -b 0.0.0.0:$PORT "run:app"`.
-4. After the first deploy, open the `.onrender.com` URL. `/health` should return JSON.
-
-Use **Python 3.10–3.12** locally and on Render (`runtime.txt` pins 3.11.9). Model pickles in `artifacts/` are included so training is not required for the demo.
