@@ -44,4 +44,4 @@ def test_non_diabetic_slightly_elevated():
 def test_non_diabetic_normal_range():
     msg = get_recommendation(100, False, _meal(carbs=45, protein=20, fat=15))
     assert "normal post-meal range" in msg
-    assert "45g carbs" in msg
+    assert "45.0g carbs" in msg
