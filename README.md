@@ -77,3 +77,14 @@ Python, pandas, numpy, scikit-learn, XGBoost, Flask, gunicorn, matplotlib/seabor
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Deploy (Render)
+
+This repo includes `render.yaml` and a `Procfile`.
+
+1. Go to [https://render.com](https://render.com) and sign in with GitHub.
+2. **New → Blueprint** (or Web Service) → select `HarishKarthickS/sugar-spike-predictor`.
+3. Render will install deps and run: `gunicorn -b 0.0.0.0:$PORT "run:app"`.
+4. After the first deploy, open the `.onrender.com` URL. `/health` should return JSON.
+
+Use **Python 3.10–3.12** locally and on Render (`runtime.txt` pins 3.11.9). Model pickles in `artifacts/` are included so training is not required for the demo.
