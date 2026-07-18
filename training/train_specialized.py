@@ -17,10 +17,17 @@ import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_DIR = os.path.join(ROOT, "data")
+ARTIFACTS_DIR = os.path.join(ROOT, "artifacts")
+DOCS_ASSETS = os.path.join(ROOT, "docs", "assets")
+os.makedirs(ARTIFACTS_DIR, exist_ok=True)
+os.makedirs(DOCS_ASSETS, exist_ok=True)
+
 print("Loading meal features from previous run...")
 try:
     # Load preprocessed features if already available
-    meal_features_df = pd.read_csv('meal_features.csv')
+    meal_features_df = pd.read_csv(os.path.join(DATA_DIR, "meal_features.csv"))
     print(f"Loaded features for {len(meal_features_df)} meal events")
 except FileNotFoundError:
     print("Meal features file not found. Please run the glucose_prediction_model.py script first.")
@@ -179,10 +186,10 @@ def train_specialized_model(df, model_type="diabetic"):
     plt.xlabel('Actual Glucose (mg/dL)')
     plt.ylabel('Predicted Glucose (mg/dL)')
     plt.title(f'Actual vs Predicted Glucose Levels ({model_type})')
-    plt.savefig(f'prediction_performance_{model_type}.png')
+    plt.savefig(os.path.join(DOCS_ASSETS, f"prediction_performance_{model_type}.png"))
     
     # Save the model
-    model_filename = f'glucose_prediction_model_{model_type}.pkl'
+    model_filename = os.path.join(ARTIFACTS_DIR, f"glucose_prediction_model_{model_type}.pkl")
     joblib.dump(model, model_filename)
     print(f"Model saved to {model_filename}")
     
@@ -213,7 +220,7 @@ if hasattr(diabetic_model[-1], 'feature_importances_'):
     plt.yticks(range(len(indices)), [f"Feature {i}" for i in indices])
     plt.xlabel('Relative Importance')
     plt.tight_layout()
-    plt.savefig('diabetic_feature_importance.png')
+    plt.savefig(os.path.join(DOCS_ASSETS, "diabetic_feature_importance.png"))
 
 # For HistGradientBoosting (non-diabetic model)
 if hasattr(non_diabetic_model[-1], 'feature_importances_'):
@@ -226,7 +233,7 @@ if hasattr(non_diabetic_model[-1], 'feature_importances_'):
     plt.yticks(range(len(indices)), [f"Feature {i}" for i in indices])
     plt.xlabel('Relative Importance')
     plt.tight_layout()
-    plt.savefig('non_diabetic_feature_importance.png')
+    plt.savefig(os.path.join(DOCS_ASSETS, "non_diabetic_feature_importance.png"))
 
 # --- 5. Create Combined Prediction Function ---
 print("\n--- Creating Combined Prediction Function ---")
@@ -304,11 +311,11 @@ def predict_glucose_after_meal(person_info, meal_info, current_glucose, glucose_
     
     # Load appropriate model
     if is_diabetic:
-        model = joblib.load('glucose_prediction_model_diabetic.pkl')
+        model = joblib.load(os.path.join(ARTIFACTS_DIR, "glucose_prediction_model_diabetic.pkl"))
         base_rmse = diabetic_rmse
         accuracy_base = max(90, 100 - (diabetic_rmse / 1.2))
     else:
-        model = joblib.load('glucose_prediction_model_non_diabetic.pkl')
+        model = joblib.load(os.path.join(ARTIFACTS_DIR, "glucose_prediction_model_non_diabetic.pkl"))
         base_rmse = non_diabetic_rmse
         accuracy_base = max(92, 100 - (non_diabetic_rmse / 1.0))
     

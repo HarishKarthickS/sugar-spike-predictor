@@ -15,6 +15,13 @@ import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_DIR = os.path.join(ROOT, "data")
+ARTIFACTS_DIR = os.path.join(ROOT, "artifacts")
+DOCS_ASSETS = os.path.join(ROOT, "docs", "assets")
+os.makedirs(ARTIFACTS_DIR, exist_ok=True)
+os.makedirs(DOCS_ASSETS, exist_ok=True)
+
 # Define constants
 PREDICTION_HORIZON_MINUTES = 120  # Predict glucose 2 hours after meal
 GLUCOSE_HISTORY_HOURS = 2  # Use 2 hours of glucose history before meal as features
@@ -24,7 +31,7 @@ RANDOM_SEED = 42
 print("Loading merged CGM and bio data...")
 try:
     # Load the merged data
-    data = pd.read_csv('merged_cgm_bio_data.csv')
+    data = pd.read_csv(os.path.join(DATA_DIR, "merged_cgm_bio_data.csv"))
     print(f"Data loaded successfully. Shape: {data.shape}")
     
     # Print column names to help debug
@@ -232,8 +239,8 @@ meal_features_df = pd.DataFrame(meal_features_list)
 print(f"Created features for {len(meal_features_df)} meal events")
 
 # Save the feature dataset for future use
-meal_features_df.to_csv('meal_features.csv', index=False)
-print("Saved meal features to meal_features.csv")
+meal_features_df.to_csv(os.path.join(DATA_DIR, "meal_features.csv"), index=False)
+print("Saved meal features to data/meal_features.csv")
 
 # --- 4. Model Training ---
 print("\n--- Model Training ---")
@@ -342,8 +349,8 @@ if len(non_diabetic_indices) > 0:
 
 # --- 6. Save the model ---
 print("\n--- Saving the Model ---")
-joblib.dump(model, 'glucose_prediction_model.pkl')
-print("Model saved to glucose_prediction_model.pkl")
+joblib.dump(model, os.path.join(ARTIFACTS_DIR, "glucose_prediction_model.pkl"))
+print("Model saved to artifacts/glucose_prediction_model.pkl")
 
 # --- 7. Create function for personalized predictions ---
 def predict_glucose_after_meal(person_info, meal_info, current_glucose, glucose_trend):
@@ -396,7 +403,7 @@ def predict_glucose_after_meal(person_info, meal_info, current_glucose, glucose_
     X_pred = pd.DataFrame([features])
     
     # Load the model
-    loaded_model = joblib.load('glucose_prediction_model.pkl')
+    loaded_model = joblib.load(os.path.join(ARTIFACTS_DIR, "glucose_prediction_model.pkl"))
     
     # Make prediction
     prediction = loaded_model.predict(X_pred)[0]
@@ -440,5 +447,5 @@ plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
 plt.xlabel('Actual Glucose (mg/dL)')
 plt.ylabel('Predicted Glucose (mg/dL)')
 plt.title('Actual vs Predicted Glucose Levels')
-plt.savefig('prediction_performance.png')
+plt.savefig(os.path.join(DOCS_ASSETS, "prediction_performance.png"))
 print("Saved prediction performance plot to prediction_performance.png") 

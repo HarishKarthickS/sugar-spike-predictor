@@ -3,8 +3,9 @@ import os
 import glob
 import re
 
-# Define the path to the data directory
-data_dir = "Data"
+# Define the path to the data directory (repo root / data)
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+data_dir = os.path.join(ROOT, "data")
 bio_file = os.path.join(data_dir, "bio.csv")
 cgm_pattern = os.path.join(data_dir, "CGMacros-*.csv")
 
@@ -89,7 +90,7 @@ try:
     print(merged_df.head())
 
     # --- 4. Save Merged Data (Optional but recommended) ---
-    output_file = "merged_cgm_bio_data.csv"
+    output_file = os.path.join(data_dir, "merged_cgm_bio_data.csv")
     merged_df.to_csv(output_file, index=False)
     print(f"\nSuccessfully merged data saved to {output_file}")
 

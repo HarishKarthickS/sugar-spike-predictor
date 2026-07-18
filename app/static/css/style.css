@@ -1,0 +1,169 @@
+:root {
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --accent: #0b6e4f;
+  --accent-soft: #e7f5ef;
+  --text: #1c2430;
+  --muted: #5b6775;
+  --danger: #b42318;
+  --radius: 14px;
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  background:
+    radial-gradient(circle at top left, #d9f2e8 0%, transparent 40%),
+    linear-gradient(180deg, #eef3f0 0%, var(--bg) 45%, #e8edf2 100%);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 2rem 1rem 3rem;
+}
+
+.container {
+  max-width: 860px;
+  margin: 0 auto;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 2rem;
+  box-shadow: var(--shadow);
+}
+
+h1 {
+  margin: 0 0 0.75rem;
+  color: var(--accent);
+  font-size: clamp(1.6rem, 2vw, 2rem);
+  text-align: center;
+}
+
+.form-text,
+.lead {
+  text-align: center;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  color: var(--accent);
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-top: 1.25rem;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: #095c42;
+  border-color: #095c42;
+}
+
+.alert {
+  border-radius: 10px;
+}
+
+.prediction-value {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.recommendation {
+  background: var(--accent-soft);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-top: 1.25rem;
+  border-left: 5px solid var(--accent);
+}
+
+.error-box {
+  background: #fdecec;
+  border-left: 5px solid var(--danger);
+  padding: 1.25rem;
+  border-radius: 10px;
+}
+
+.range-indicator {
+  display: flex;
+  align-items: center;
+  margin-top: 15px;
+  gap: 10px;
+}
+
+.range-bar {
+  flex-grow: 1;
+  height: 10px;
+  background-color: rgba(11, 110, 79, 0.2);
+  border-radius: 5px;
+  position: relative;
+}
+
+.range-point {
+  position: absolute;
+  top: -5px;
+  width: 20px;
+  height: 20px;
+  background-color: var(--accent);
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+.range-label {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.confidence-interval {
+  background-color: var(--accent-soft);
+  border-radius: 10px;
+  padding: 15px;
+  margin-top: 20px;
+  border-left: 5px solid var(--accent);
+  text-align: center;
+}
+
+.accuracy-badge {
+  background-color: var(--accent);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-top: 10px;
+  font-weight: 700;
+}
+
+.chart-container {
+  margin-top: 30px;
+  margin-bottom: 20px;
+  height: 300px;
+}
+
+.glucose-gauge-container {
+  position: relative;
+  width: 100%;
+  height: 30px;
+  background-color: #e9ecef;
+  border-radius: 15px;
+  margin: 20px 0;
+  overflow: hidden;
+}
+
+.glucose-gauge {
+  height: 100%;
+  background: linear-gradient(90deg, #198754, #ffc107, #dc3545);
+  border-radius: 15px;
+}
+
