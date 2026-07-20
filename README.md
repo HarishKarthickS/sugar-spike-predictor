@@ -16,12 +16,22 @@ models (diabetic vs non-diabetic).
 - Flask web UI with client + server form validation, recommendations, and expected RMSE ranges
 - Trainable from CGM + bio CSV data (optional — pickles in `artifacts/` ship with the repo)
 
+## Notebook
+
+Analysis notebook (problem, features, models, metrics, inference demo):
+
+- [notebooks/sugar_spike_analysis.ipynb](notebooks/sugar_spike_analysis.ipynb)
+- GitHub: [sugar_spike_analysis.ipynb](https://github.com/HarishKarthickS/sugar-spike-predictor/blob/main/notebooks/sugar_spike_analysis.ipynb)
+
+Open in Jupyter, VS Code, or Colab after `pip install -r requirements.txt`.
+
 ## Project layout
 
 ```text
 app/                 Flask app (routes, validation, features, predictor, templates, static)
 artifacts/           Trained model pickles (joblib)
 training/            Data prep + baseline / specialized training scripts
+notebooks/           ML analysis notebook
 data/                Place raw CGM/bio CSVs here when retraining (gitignored contents)
 docs/assets/         Plots and docs assets
 tests/               Unit tests

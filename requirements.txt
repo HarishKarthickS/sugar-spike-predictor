@@ -11,3 +11,5 @@ matplotlib==3.7.1
 seaborn==0.12.2
 python-dateutil==2.8.2
 pytest==7.4.4
+notebook==7.0.8
+ipykernel==6.29.5
