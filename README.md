@@ -6,6 +6,8 @@ models (diabetic vs non-diabetic).
 
 **Live demo:** [https://sugar-spike-predictor-92g4.onrender.com/](https://sugar-spike-predictor-92g4.onrender.com/)
 
+This is a clinical prediction form with charts and RMSE ranges — not a wellness landing page.
+
 > Not medical advice. For research and education only. Always follow your clinician’s guidance.
 
 ## Features
